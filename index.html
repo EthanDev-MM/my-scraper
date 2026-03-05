@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🕷️ Web Scraper Tool</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #050a0e;
+      --surface: #0d1b22;
+      --border: #0f3a2e;
+      --green: #00ff88;
+      --green-dim: #00cc66;
+      --green-faint: rgba(0,255,136,0.07);
+      --cyan: #00e5ff;
+      --yellow: #ffe600;
+      --red: #ff3c5a;
+      --text: #c8f0dc;
+      --muted: #4a7a60;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* Grid background */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      padding: 60px 0 50px;
+      animation: fadeDown 0.8s ease both;
+    }
+
+    .logo-line {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: 900;
+      color: var(--green);
+      text-shadow: 0 0 30px rgba(0,255,136,0.5), 0 0 60px rgba(0,255,136,0.2);
+      letter-spacing: 4px;
+      line-height: 1.1;
+    }
+
+    .logo-line span { color: var(--cyan); }
+
+    .tagline {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .blink {
+      animation: blink 1s step-end infinite;
+    }
+
+    /* Feature cards */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin: 40px 0;
+      animation: fadeUp 0.8s 0.2s ease both;
+    }
+
+    .feat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px 16px;
+      text-align: center;
+      transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
+      cursor: default;
+    }
+
+    .feat-card:hover {
+      border-color: var(--green);
+      box-shadow: 0 0 20px rgba(0,255,136,0.15);
+      transform: translateY(-3px);
+    }
+
+    .feat-icon { font-size: 1.8rem; display: block; margin-bottom: 10px; }
+    .feat-label { font-size: 0.78rem; color: var(--green-dim); letter-spacing: 1px; text-transform: uppercase; }
+
+    /* Section */
+    .section {
+      margin: 40px 0;
+      animation: fadeUp 0.8s 0.3s ease both;
+    }
+
+    .section-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.75rem;
+      color: var(--cyan);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title::before { content: '// '; color: var(--muted); }
+
+    /* Terminal block */
+    .terminal {
+      background: #020d09;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(0,255,136,0.05);
+    }
+
+    .terminal-bar {
+      background: #0a1f16;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot.r { background: var(--red); }
+    .dot.y { background: var(--yellow); }
+    .dot.g { background: var(--green); }
+    .terminal-title { margin-left: 8px; font-size: 0.75rem; color: var(--muted); letter-spacing: 2px; }
+
+    .terminal-body {
+      padding: 24px;
+      font-size: 0.88rem;
+      line-height: 1.9;
+      overflow-x: auto;
+    }
+
+    .line { display: flex; gap: 12px; }
+    .prompt { color: var(--green); user-select: none; flex-shrink: 0; }
+    .cmd { color: #e0ffe8; }
+    .comment { color: var(--muted); font-style: italic; }
+    .keyword { color: var(--cyan); }
+    .string { color: var(--yellow); }
+    .func { color: #a8ff78; }
+    .num { color: #ff9d5c; }
+    .output-line { color: var(--muted); padding-left: 20px; }
+    .success { color: var(--green); padding-left: 20px; }
+    .blank { height: 10px; }
+
+    /* Code viewer */
+    .code-wrapper {
+      position: relative;
+    }
+
+    .code-block {
+      background: #020d09;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 24px;
+      font-size: 0.82rem;
+      line-height: 1.8;
+      overflow-x: auto;
+      max-height: 420px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .code-block::-webkit-scrollbar { width: 6px; height: 6px; }
+    .code-block::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .ln { color: #1a4030; margin-right: 20px; user-select: none; display: inline-block; width: 28px; text-align: right; }
+
+    /* Output table */
+    .output-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    .output-table th {
+      background: #0a1f16;
+      color: var(--cyan);
+      padding: 10px 16px;
+      text-align: left;
+      letter-spacing: 2px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+    }
+
+    .output-table td {
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .output-table tr:nth-child(even) td { background: var(--green-faint); }
+    .output-table tr:hover td { background: rgba(0,255,136,0.1); }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 2px;
+      font-size: 0.72rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .badge-csv { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid var(--green-dim); }
+    .badge-json { background: rgba(0,229,255,0.1); color: var(--cyan); border: 1px solid var(--cyan); }
+
+    /* Download button */
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 32px;
+      padding: 14px 32px;
+      background: transparent;
+      border: 2px solid var(--green);
+      color: var(--green);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-decoration: none;
+      text-transform: uppercase;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 0 20px rgba(0,255,136,0.1);
+      animation: fadeUp 0.8s 0.5s ease both;
+    }
+
+    .download-btn:hover {
+      background: var(--green);
+      color: #000;
+      box-shadow: 0 0 40px rgba(0,255,136,0.4);
+      transform: translateY(-2px);
+    }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 16px; }
+
+    .step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: border-color 0.3s;
+    }
+
+    .step:hover { border-color: var(--green); }
+
+    .step-num {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: var(--green);
+      opacity: 0.4;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .step-content { flex: 1; }
+    .step-title { color: var(--green-dim); font-size: 0.85rem; margin-bottom: 4px; }
+    .step-desc { color: var(--muted); font-size: 0.78rem; line-height: 1.6; }
+    .step-desc code { color: var(--yellow); background: rgba(255,230,0,0.08); padding: 1px 6px; border-radius: 2px; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding-top: 60px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      animation: fadeUp 0.8s 0.6s ease both;
+    }
+
+    /* Animations */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    @keyframes glow {
+      0%, 100% { text-shadow: 0 0 20px rgba(0,255,136,0.4); }
+      50%       { text-shadow: 0 0 40px rgba(0,255,136,0.8), 0 0 80px rgba(0,255,136,0.3); }
+    }
+
+    .logo-line { animation: glow 3s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-line">🕷️ WEB<span>SCRAPER</span></div>
+    <div class="tagline">python automated data extraction tool <span class="blink">█</span></div>
+  </header>
+
+  <!-- Features -->
+  <div class="features">
+    <div class="feat-card"><span class="feat-icon">📰</span><span class="feat-label">Articles & Text</span></div>
+    <div class="feat-card"><span class="feat-icon">🖼️</span><span class="feat-label">Images</span></div>
+    <div class="feat-card"><span class="feat-icon">🔗</span><span class="feat-label">Links & URLs</span></div>
+    <div class="feat-card"><span class="feat-icon">📊</span><span class="feat-label">Tables</span></div>
+    <div class="feat-card"><span class="feat-icon">🗂️</span><span class="feat-label">Categories</span></div>
+    <div class="feat-card"><span class="feat-icon">📄</span><span class="feat-label">5 Pages</span></div>
+  </div>
+
+  <!-- Quick Start -->
+  <div class="section">
+    <div class="section-title">Quick Start</div>
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+        <span class="terminal-title">TERMINAL — bash</span>
+      </div>
+      <div class="terminal-body">
+        <div class="line"><span class="prompt">$</span><span class="cmd"><span class="keyword">pip</span> install requests beautifulsoup4 pandas</span></div>
+        <div class="output-line">Collecting requests... ✓</div>
+        <div class="output-line">Collecting beautifulsoup4... ✓</div>
+        <div class="output-line">Collecting pandas... ✓</div>
+        <div class="blank"></div>
+        <div class="line"><span class="prompt">$</span><span class="cmd"><span class="comment"># Edit BASE_URL in scraper.py first, then:</span></span></div>
+        <div class="line"><span class="prompt">$</span><span class="cmd"><span class="keyword">python</span> scraper.py</span></div>
+        <div class="blank"></div>
+        <div class="output-line">🕷️  Starting scrape of: https://your-site.com</div>
+        <div class="output-line">   Pages to scrape: 5</div>
+        <div class="output-line">📄 Scraping page 1...</div>
+        <div class="output-line">📄 Scraping page 2...</div>
+        <div class="output-line">💾 Saving results to 'scraped_output/'...</div>
+        <div class="success">  ✅ articles.csv — 42 items</div>
+        <div class="success">  ✅ images.csv — 118 items</div>
+        <div class="success">  ✅ links.csv — 203 items</div>
+        <div class="success">  ✅ tables.json — 5 tables</div>
+        <div class="success">  ✅ categories.csv — 27 items</div>
+        <div class="success">✅ Done!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Source Code -->
+  <div class="section">
+    <div class="section-title">Source Code — scraper.py</div>
+    <div class="code-wrapper">
+      <div class="code-block"><pre id="code-display"></pre></div>
+    </div>
+    <a class="download-btn" href="scraper.py" download>
+      ⬇ &nbsp; Download scraper.py
+    </a>
+  </div>
+
+  <!-- Output Files -->
+  <div class="section">
+    <div class="section-title">Output Files</div>
+    <table class="output-table">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Format</th>
+          <th>Contents</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>articles.csv</td><td><span class="badge badge-csv">CSV</span></td><td>Page titles + body text</td></tr>
+        <tr><td>images.csv</td><td><span class="badge badge-csv">CSV</span></td><td>Image URLs + alt text</td></tr>
+        <tr><td>links.csv</td><td><span class="badge badge-csv">CSV</span></td><td>All hyperlinks found</td></tr>
+        <tr><td>tables.json</td><td><span class="badge badge-json">JSON</span></td><td>All HTML tables</td></tr>
+        <tr><td>categories.csv</td><td><span class="badge badge-csv">CSV</span></td><td>Nav/sidebar categories</td></tr>
+        <tr><td>images/</td><td><span class="badge badge-json">DIR</span></td><td>Downloaded image files (max 20)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- How to Deploy -->
+  <div class="section">
+    <div class="section-title">How to Deploy on GitHub Pages</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <div class="step-title">Create GitHub Repository</div>
+          <div class="step-desc">Go to <code>github.com</code> → New Repository → Set to <code>Public</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <div class="step-title">Upload Files</div>
+          <div class="step-desc">Upload <code>index.html</code> and <code>scraper.py</code> to the repository</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <div class="step-title">Enable GitHub Pages</div>
+          <div class="step-desc">Settings → Pages → Branch: <code>main</code> → Save</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <div class="step-title">Your Site is Live 🎉</div>
+          <div class="step-desc">Visit <code>https://your-username.github.io/repo-name</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    &lt;/&gt; &nbsp; Built with Python · BeautifulSoup · Pandas &nbsp; // &nbsp; GitHub Pages Ready
+  </footer>
+
+</div>
+
+<script>
+const code = `import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import os
+import json
+from urllib.parse import urljoin, urlparse
+
+# ─────────────────────────────────────────
+# CONFIG — edit these before running
+# ─────────────────────────────────────────
+BASE_URL = "https://example.com"       # 🔁 Replace with your target URL
+MAX_PAGES = 5                          # Number of pages to scrape
+OUTPUT_DIR = "scraped_output"          # Folder for saved results
+
+def get_page_url(page_num):
+    return f"{BASE_URL}?page={page_num}"
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/120.0.0.0 Safari/537.36"
+}
+# ─────────────────────────────────────────
+
+def setup_output_dir():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(f"{OUTPUT_DIR}/images", exist_ok=True)
+
+def fetch_page(url):
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+        return BeautifulSoup(response.text, "html.parser")
+    except requests.RequestException as e:
+        print(f"  ⚠️  Failed to fetch {url}: {e}")
+        return None
+
+def scrape_text_and_articles(soup, page_num):
+    articles = []
+    for tag in soup.find_all(["article", "section", "div"], class_=lambda c: c and any(
+            k in c for k in ["article", "post", "content", "entry", "story"])):
+        title_tag = tag.find(["h1", "h2", "h3"])
+        title = title_tag.get_text(strip=True) if title_tag else "N/A"
+        paragraphs = " ".join(p.get_text(strip=True) for p in tag.find_all("p"))
+        if title != "N/A" or paragraphs:
+            articles.append({"page": page_num, "title": title, "text": paragraphs})
+    return articles
+
+def scrape_images(soup, page_url, page_num):
+    images = []
+    for img in soup.find_all("img", src=True):
+        src = urljoin(page_url, img["src"])
+        alt = img.get("alt", "")
+        images.append({"page": page_num, "url": src, "alt": alt})
+    return images
+
+def scrape_links(soup, page_url, page_num):
+    links = []
+    for a in soup.find_all("a", href=True):
+        href = urljoin(page_url, a["href"])
+        text = a.get_text(strip=True)
+        links.append({"page": page_num, "text": text, "url": href})
+    return links
+
+def scrape_tables(soup, page_num):
+    all_tables = []
+    for i, table in enumerate(soup.find_all("table")):
+        rows = []
+        for tr in table.find_all("tr"):
+            cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
+            if cells:
+                rows.append(cells)
+        if rows:
+            all_tables.append({"page": page_num, "table_index": i, "rows": rows})
+    return all_tables
+
+def scrape_categories(soup, page_num):
+    categories = []
+    for tag in soup.find_all(["nav", "ul", "ol"], class_=lambda c: c and any(
+            k in c for k in ["category", "categories", "menu", "breadcrumb", "nav", "sidebar", "tag"])):
+        for item in tag.find_all(["li", "a"]):
+            text = item.get_text(strip=True)
+            link = item.find("a")
+            href = urljoin(BASE_URL, link["href"]) if link and link.get("href") else ""
+            if text:
+                categories.append({"page": page_num, "category": text, "url": href})
+    return categories
+
+def download_images(images):
+    print(f"\\n📥 Downloading {len(images)} images...")
+    for i, img in enumerate(images[:20]):
+        try:
+            r = requests.get(img["url"], headers=HEADERS, timeout=10)
+            ext = os.path.splitext(urlparse(img["url"]).path)[-1] or ".jpg"
+            filename = f"{OUTPUT_DIR}/images/img_{i+1}{ext}"
+            with open(filename, "wb") as f:
+                f.write(r.content)
+        except Exception as e:
+            print(f"  ⚠️  Could not download {img['url']}: {e}")
+
+def save_results(all_data):
+    if all_data["articles"]:
+        pd.DataFrame(all_data["articles"]).to_csv(f"{OUTPUT_DIR}/articles.csv", index=False)
+    if all_data["images"]:
+        pd.DataFrame(all_data["images"]).to_csv(f"{OUTPUT_DIR}/images.csv", index=False)
+    if all_data["links"]:
+        pd.DataFrame(all_data["links"]).to_csv(f"{OUTPUT_DIR}/links.csv", index=False)
+    if all_data["tables"]:
+        with open(f"{OUTPUT_DIR}/tables.json", "w") as f:
+            json.dump(all_data["tables"], f, indent=2)
+    if all_data["categories"]:
+        pd.DataFrame(all_data["categories"]).to_csv(f"{OUTPUT_DIR}/categories.csv", index=False)
+
+def main():
+    setup_output_dir()
+    print(f"🕷️  Starting scrape of: {BASE_URL}")
+    all_data = {"articles": [], "images": [], "links": [], "tables": [], "categories": []}
+
+    for page_num in range(1, MAX_PAGES + 1):
+        url = get_page_url(page_num) if page_num > 1 else BASE_URL
+        print(f"📄 Scraping page {page_num}: {url}")
+        soup = fetch_page(url)
+        if not soup:
+            continue
+        all_data["articles"].extend(scrape_text_and_articles(soup, page_num))
+        all_data["images"].extend(scrape_images(soup, url, page_num))
+        all_data["links"].extend(scrape_links(soup, url, page_num))
+        all_data["tables"].extend(scrape_tables(soup, page_num))
+        all_data["categories"].extend(scrape_categories(soup, page_num))
+
+    save_results(all_data)
+    download_images(all_data["images"])
+    print(f"\\n✅ Done! All files saved in '{OUTPUT_DIR}/'")
+
+if __name__ == "__main__":
+    main()`;
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlight(line) {
+  const escaped = escapeHtml(line);
+  return escaped
+    .replace(/(#.*$)/g, '<span class="comment">$1</span>')
+    .replace(/\b(import|from|def|return|if|for|try|except|with|as|in|not|and|or|True|False|None|class)\b/g, '<span class="keyword">$1</span>')
+    .replace(/(["'`][^"'`\n]*["'`])/g, '<span class="string">$1</span>')
+    .replace(/\b(\d+)\b/g, '<span class="num">$1</span>');
+}
+
+const lines = code.split('\n');
+const el = document.getElementById('code-display');
+el.innerHTML = lines.map((line, i) =>
+  `<span class="ln">${String(i+1).padStart(3,' ')}</span>${highlight(line)}`
+).join('\n');
+</script>
+</body>
+</html>
